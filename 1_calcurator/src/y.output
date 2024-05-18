@@ -1,0 +1,279 @@
+Terminals unused in grammar
+
+    '+'
+    '-'
+    '*'
+    '/'
+
+
+State 1 conflicts: 1 shift/reduce
+State 2 conflicts: 2 shift/reduce
+State 4 conflicts: 2 shift/reduce
+State 13 conflicts: 4 shift/reduce
+State 14 conflicts: 4 shift/reduce
+State 15 conflicts: 4 shift/reduce
+State 16 conflicts: 4 shift/reduce
+
+
+Grammar
+
+    0 $accept: input $end
+
+    1 input: line
+    2      | input line
+
+    3 line: ε
+    4     | line expr CR
+    5     | line EOT
+
+    6 expr: expr ADD expr
+    7     | expr SUB expr
+    8     | expr MUL expr
+    9     | expr DIV expr
+   10     | LITERAL_INT
+
+
+Terminals, with rules where they appear
+
+    $end (0) 0
+    '*' (42)
+    '+' (43)
+    '-' (45)
+    '/' (47)
+    error (256)
+    CR (258) 4
+    ADD (259) 6
+    SUB (260) 7
+    MUL (261) 8
+    DIV (262) 9
+    LITERAL_INT (263) 10
+    EOT (264) 5
+
+
+Nonterminals, with rules where they appear
+
+    $accept (14)
+        on left: 0
+    input (15)
+        on left: 1 2
+        on right: 0 2
+    line (16)
+        on left: 3 4 5
+        on right: 1 2 4 5
+    expr (17)
+        on left: 6 7 8 9 10
+        on right: 4 6 7 8 9
+
+
+State 0
+
+    0 $accept: • input $end
+
+    $default  reduce using rule 3 (line)
+
+    input  go to state 1
+    line   go to state 2
+
+
+State 1
+
+    0 $accept: input • $end
+    2 input: input • line
+
+    $end  shift, and go to state 3
+
+    $end      [reduce using rule 3 (line)]
+    $default  reduce using rule 3 (line)
+
+    line  go to state 4
+
+
+State 2
+
+    1 input: line •
+    4 line: line • expr CR
+    5     | line • EOT
+
+    LITERAL_INT  shift, and go to state 5
+    EOT          shift, and go to state 6
+
+    LITERAL_INT  [reduce using rule 1 (input)]
+    EOT          [reduce using rule 1 (input)]
+    $default     reduce using rule 1 (input)
+
+    expr  go to state 7
+
+
+State 3
+
+    0 $accept: input $end •
+
+    $default  accept
+
+
+State 4
+
+    2 input: input line •
+    4 line: line • expr CR
+    5     | line • EOT
+
+    LITERAL_INT  shift, and go to state 5
+    EOT          shift, and go to state 6
+
+    LITERAL_INT  [reduce using rule 2 (input)]
+    EOT          [reduce using rule 2 (input)]
+    $default     reduce using rule 2 (input)
+
+    expr  go to state 7
+
+
+State 5
+
+   10 expr: LITERAL_INT •
+
+    $default  reduce using rule 10 (expr)
+
+
+State 6
+
+    5 line: line EOT •
+
+    $default  reduce using rule 5 (line)
+
+
+State 7
+
+    4 line: line expr • CR
+    6 expr: expr • ADD expr
+    7     | expr • SUB expr
+    8     | expr • MUL expr
+    9     | expr • DIV expr
+
+    CR   shift, and go to state 8
+    ADD  shift, and go to state 9
+    SUB  shift, and go to state 10
+    MUL  shift, and go to state 11
+    DIV  shift, and go to state 12
+
+
+State 8
+
+    4 line: line expr CR •
+
+    $default  reduce using rule 4 (line)
+
+
+State 9
+
+    6 expr: expr ADD • expr
+
+    LITERAL_INT  shift, and go to state 5
+
+    expr  go to state 13
+
+
+State 10
+
+    7 expr: expr SUB • expr
+
+    LITERAL_INT  shift, and go to state 5
+
+    expr  go to state 14
+
+
+State 11
+
+    8 expr: expr MUL • expr
+
+    LITERAL_INT  shift, and go to state 5
+
+    expr  go to state 15
+
+
+State 12
+
+    9 expr: expr DIV • expr
+
+    LITERAL_INT  shift, and go to state 5
+
+    expr  go to state 16
+
+
+State 13
+
+    6 expr: expr • ADD expr
+    6     | expr ADD expr •
+    7     | expr • SUB expr
+    8     | expr • MUL expr
+    9     | expr • DIV expr
+
+    ADD  shift, and go to state 9
+    SUB  shift, and go to state 10
+    MUL  shift, and go to state 11
+    DIV  shift, and go to state 12
+
+    ADD       [reduce using rule 6 (expr)]
+    SUB       [reduce using rule 6 (expr)]
+    MUL       [reduce using rule 6 (expr)]
+    DIV       [reduce using rule 6 (expr)]
+    $default  reduce using rule 6 (expr)
+
+
+State 14
+
+    6 expr: expr • ADD expr
+    7     | expr • SUB expr
+    7     | expr SUB expr •
+    8     | expr • MUL expr
+    9     | expr • DIV expr
+
+    ADD  shift, and go to state 9
+    SUB  shift, and go to state 10
+    MUL  shift, and go to state 11
+    DIV  shift, and go to state 12
+
+    ADD       [reduce using rule 7 (expr)]
+    SUB       [reduce using rule 7 (expr)]
+    MUL       [reduce using rule 7 (expr)]
+    DIV       [reduce using rule 7 (expr)]
+    $default  reduce using rule 7 (expr)
+
+
+State 15
+
+    6 expr: expr • ADD expr
+    7     | expr • SUB expr
+    8     | expr • MUL expr
+    8     | expr MUL expr •
+    9     | expr • DIV expr
+
+    ADD  shift, and go to state 9
+    SUB  shift, and go to state 10
+    MUL  shift, and go to state 11
+    DIV  shift, and go to state 12
+
+    ADD       [reduce using rule 8 (expr)]
+    SUB       [reduce using rule 8 (expr)]
+    MUL       [reduce using rule 8 (expr)]
+    DIV       [reduce using rule 8 (expr)]
+    $default  reduce using rule 8 (expr)
+
+
+State 16
+
+    6 expr: expr • ADD expr
+    7     | expr • SUB expr
+    8     | expr • MUL expr
+    9     | expr • DIV expr
+    9     | expr DIV expr •
+
+    ADD  shift, and go to state 9
+    SUB  shift, and go to state 10
+    MUL  shift, and go to state 11
+    DIV  shift, and go to state 12
+
+    ADD       [reduce using rule 9 (expr)]
+    SUB       [reduce using rule 9 (expr)]
+    MUL       [reduce using rule 9 (expr)]
+    DIV       [reduce using rule 9 (expr)]
+    $default  reduce using rule 9 (expr)
