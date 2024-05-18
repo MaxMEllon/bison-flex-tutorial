@@ -44,6 +44,6 @@ void yyerror(char * str) {
   printf("cause error: %s\n", str);
 }
 
-void main() {
+int main(int argc, char * argv[]) {
   yyparse();
 }

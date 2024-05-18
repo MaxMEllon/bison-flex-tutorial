@@ -4,3 +4,5 @@
 *.tab.h
 token.h
 *.output
+*.wasm
+*.js
