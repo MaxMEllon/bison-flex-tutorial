@@ -16,6 +16,8 @@ extern void yyerror(char * str);
 
 %token CR
 
+%token HEAD
+
 %token L_SB R_SB
 %token L_PT R_PT
 
@@ -40,7 +42,26 @@ Blocks
     ;
 
 Block
-    : Paragrah
+    : Header
+    | Paragrah
+    ;
+
+Header
+    : HEAD H1
+    ;
+
+H1
+    : HEAD H2
+    | Paragrah
+    ;
+
+H2
+    : HEAD H3
+    | Paragrah
+    ;
+
+H3  :
+    | Paragrah
     ;
 
 Paragrah

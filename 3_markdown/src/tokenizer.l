@@ -25,6 +25,8 @@ int yywrap() {
 
 %%
 
+"#" return HEAD;
+
 "[" return L_SB;
 "]" return R_SB;
 
