@@ -4,11 +4,23 @@
 #include <stdlib.h>
 #include <string.h>
 
+# ifdef __EMSCRIPTEN__
+# include <emscripten.h>
+# else
+# define EMSCRIPTEN_KEEPALIVE
+# endif
+
+
 int yydebug = 0;
 int output_ast = 0;
 struct ASTNode* document_root = NULL;
 extern int yylex();
 extern void yyerror(char * str);
+
+// Flex buffer management functions
+typedef struct yy_buffer_state *YY_BUFFER_STATE;
+extern YY_BUFFER_STATE yy_scan_string(const char* str);
+extern void yy_delete_buffer(YY_BUFFER_STATE buffer);
 
 typedef struct ASTNode {
   char* type;
@@ -389,11 +401,63 @@ void print_escaped_html(const char* str) {
   }
 }
 
+// Parse a markdown string and return the result as HTML
+EMSCRIPTEN_KEEPALIVE
+int parse_markdown(const char* input) {
+  // Reset document root
+  document_root = NULL;
+  output_ast = 0;  // HTML mode
+
+  // Use yy_scan_string to parse from a string instead of yyin
+  YY_BUFFER_STATE buffer = yy_scan_string(input);
+
+  // Output opening article tag for HTML mode
+  printf("<article id=\"mr\">\n");
+
+  // Parse the input
+  int result = yyparse();
+
+  // Output closing article tag for HTML mode
+  printf("</article>\n");
+
+  // Clean up the buffer
+  yy_delete_buffer(buffer);
+
+  return result;
+}
+
+// Parse a markdown string and return the result as AST JSON
+EMSCRIPTEN_KEEPALIVE
+int parse_markdown_as_ast(const char* input) {
+  // Reset document root
+  document_root = NULL;
+  output_ast = 1;  // AST mode
+
+  // Use yy_scan_string to parse from a string instead of yyin
+  YY_BUFFER_STATE buffer = yy_scan_string(input);
+
+  // Parse the input
+  int result = yyparse();
+
+  // Output AST as JSON
+  if (document_root) {
+    print_ast_json(document_root, 0);
+    printf("\n");
+  }
+
+  // Clean up the buffer
+  yy_delete_buffer(buffer);
+
+  return result;
+}
+
 int main(int argc, char * argv[]) {
-  extern int yyparse(void);
+  extern int EMSCRIPTEN_KEEPALIVE yyparse(void);
   extern FILE *yyin;
 
-  // Parse command line arguments
+  // Parse command line arguments to determine output mode
+  // --ast flag: output AST JSON
+  // no flags: output HTML
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--ast") == 0) {
       output_ast = 1;
@@ -408,10 +472,12 @@ int main(int argc, char * argv[]) {
     printf("<article id=\"mr\">\n");
   }
 
+  // Parse the input
   if (yyparse()) {
     exit(1);
   }
 
+  // Output results based on the --ast flag
   if (output_ast && document_root) {
     print_ast_json(document_root, 0);
     printf("\n");
