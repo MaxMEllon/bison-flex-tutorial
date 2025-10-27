@@ -4,7 +4,10 @@
       "Bash(make:*)",
       "Bash(rm:*)",
       "Bash(./a.out sample.md)",
-      "Bash(./a.out --ast sample.md)"
+      "Bash(./a.out --ast sample.md)",
+      "Bash(bison:*)",
+      "Bash(flex:*)",
+      "Bash(gcc:*)"
     ],
     "deny": []
   }

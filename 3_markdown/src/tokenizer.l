@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "y.tab.h"
+#include "lexer.tab.h"
 #include "token.h"
 
 int yywrap() {
@@ -26,6 +26,8 @@ int yywrap() {
 %x CODEBLOCK
 
 %%
+
+"-"[ ]* return LIST_ITEM;
 
 "#"[ ]* return HEAD;
 
@@ -64,7 +66,7 @@ int yywrap() {
 
 \n return CR;
 
-[A-Za-z0-9:/._ {};\-"',@=&?\x80-\xFF]+ {
+[A-Za-z0-9:/._ {};\"',@=&?\x80-\xFF]+ {
   char* str;
   str = (char *) calloc(sizeof(char), strlen(yytext) + 1);
   strcpy(str, yytext);

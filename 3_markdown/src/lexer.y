@@ -34,6 +34,7 @@ void print_escaped_html(const char* str);
 
 %token CR
 %token HEAD
+%token LIST_ITEM
 %token L_SB R_SB
 %token L_PT R_PT
 %token BACKTICK
@@ -43,7 +44,7 @@ void print_escaped_html(const char* str);
 
 %type <str> STRING HeaderText CodeContent
 %type <level> HeaderLevel
-%type <node> Document Blocks Block Header Paragraph InlineElements InlineElement URL InlineCode String CodeBlock
+%type <node> Document Blocks Block Header Paragraph InlineElements InlineElement URL InlineCode String CodeBlock List ListItems ListItem
 
 %%
 
@@ -90,6 +91,7 @@ Block
         }
     }
     | CodeBlock { $$ = $1; }
+    | List { $$ = $1; }
     ;
 
 Header
@@ -205,6 +207,42 @@ CodeContent
     }
     ;
 
+List
+    : ListItems {
+        $$ = create_node("List", NULL, 0);
+        for (int i = 0; i < $1->child_count; i++) {
+            add_child($$, $1->children[i]);
+        }
+        if (!output_ast) {
+            printf("<ul>\n");
+            for (int i = 0; i < $1->child_count; i++) {
+                printf("<li>%s</li>\n", $1->children[i]->content);
+            }
+            printf("</ul>\n");
+        }
+    }
+    ;
+
+ListItems
+    : ListItem {
+        $$ = create_node("ListItems", NULL, 0);
+        add_child($$, $1);
+    }
+    | ListItems ListItem {
+        $$ = $1;
+        add_child($$, $2);
+    }
+    ;
+
+ListItem
+    : LIST_ITEM STRING CR {
+        $$ = create_node("ListItem", $2, 0);
+    }
+    | LIST_ITEM STRING {
+        $$ = create_node("ListItem", $2, 0);
+    }
+    ;
+
 %%
 
 void yyerror(char * str) {
@@ -270,38 +308,55 @@ void print_ast_json(ASTNode* node, int indent) {
 
 void print_paragraph_html(ASTNode* node) {
   if (!node) return;
-  
+
   printf("<p>");
   int has_trailing_space = 0;
-  
+
   for (int i = 0; i < node->child_count; i++) {
     ASTNode* child = node->children[i];
-    if (strcmp(child->type, "Text") == 0) {
-      printf("%s", child->content);
-      // Check if this text ends with space and is followed by LineBreak
-      if (child->content && strlen(child->content) > 0) {
-        char last_char = child->content[strlen(child->content) - 1];
-        if (last_char == ' ' && i + 1 < node->child_count) {
-          ASTNode* next = node->children[i + 1];
-          if (strcmp(next->type, "LineBreak") == 0) {
-            has_trailing_space = 1;
+    // Hash function for string switching
+    unsigned int hash = 0;
+    for (const char* s = child->type; *s; s++) {
+      hash = hash * 31 + *s;
+    }
+
+    switch (hash) {
+      // "Text"
+      case 2603341:
+        printf("%s", child->content);
+        // Check if this text ends with space and is followed by LineBreak
+        if (child->content && strlen(child->content) > 0) {
+          char last_char = child->content[strlen(child->content) - 1];
+          if (last_char == ' ' && i + 1 < node->child_count) {
+            ASTNode* next = node->children[i + 1];
+            if (strcmp(next->type, "LineBreak") == 0) {
+              has_trailing_space = 1;
+            }
           }
         }
-      }
-    } else if (strcmp(child->type, "Link") == 0) {
-      ASTNode* href = child->children[0]; // First child should be href
-      printf("<a href='%s'>%s</a>", href->content, child->content);
-    } else if (strcmp(child->type, "InlineCode") == 0) {
-      printf("<code>");
-      print_escaped_html(child->content);
-      printf("</code>");
-    } else if (strcmp(child->type, "LineBreak") == 0) {
-      if (has_trailing_space) {
-        printf("</p>\n<p>");
-        has_trailing_space = 0;  // Reset flag
-      } else {
-        printf("\n");
-      }
+        break;
+      // "Link"
+      case 2368538:
+        {
+          ASTNode* href = child->children[0]; // First child should be href
+          printf("<a href='%s'>%s</a>", href->content, child->content);
+        }
+        break;
+      // "LineBreak"
+      case 181055819:
+        if (has_trailing_space) {
+          printf("</p>\n<p>");
+          has_trailing_space = 0;  // Reset flag
+        } else {
+          printf("\n");
+        }
+        break;
+      // "InlineCode"
+      case 2771037254:
+        printf("<code>");
+        print_escaped_html(child->content);
+        printf("</code>");
+        break;
     }
   }
   printf("</p>\n");
@@ -309,7 +364,7 @@ void print_paragraph_html(ASTNode* node) {
 
 void print_escaped_html(const char* str) {
   if (!str) return;
-  
+
   for (int i = 0; str[i] != '\0'; i++) {
     switch (str[i]) {
       case '<':
