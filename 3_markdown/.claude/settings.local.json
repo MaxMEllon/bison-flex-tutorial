@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make:*)",
+      "Bash(rm:*)",
+      "Bash(./a.out sample.md)",
+      "Bash(./a.out --ast sample.md)"
+    ],
+    "deny": []
+  }
+}
