@@ -73,16 +73,50 @@ char* generate_paragraph_html(ASTNode* node) {
         // Check if this text ends with space and is followed by LineBreak
         if (child->content && strlen(child->content) > 0) {
           char last_char = child->content[strlen(child->content) - 1];
-          ASTNode* next = node->children[i + 1];
-          if (next->type == NODE_LINE_BREAK) {
-            has_trailing_space = 1;
+          if (last_char == ' ' && i + 1 < node->child_count) {
+            ASTNode* next = node->children[i + 1];
+            if (next->type == NODE_LINE_BREAK) {
+              has_trailing_space = 1;
+            }
           }
         }
         break;
       case NODE_LINK:
         {
-          ASTNode* href = child->children[0]; // First child should be href
-          sb_append_format(sb, "<a href='%s'>%s</a>", href->content, child->content);
+          if (child->child_count > 0) {
+            // Last child is href, others are link content
+            ASTNode* href = child->children[child->child_count - 1];
+            sb_append_format(sb, "<a href='%s'>", href->content);
+
+            // Render all children except the last one (href)
+            for (int j = 0; j < child->child_count - 1; j++) {
+              ASTNode* link_child = child->children[j];
+              switch (link_child->type) {
+                case NODE_TEXT:
+                  sb_append(sb, link_child->content);
+                  break;
+                case NODE_IMAGE:
+                  {
+                    ASTNode* src = link_child->children[0];
+                    sb_append_format(sb, "<img src='%s' alt='%s' />", src->content, link_child->content);
+                  }
+                  break;
+                case NODE_INLINE_CODE:
+                  {
+                    sb_append(sb, "<code>");
+                    char* escaped = generate_escaped_html(link_child->content);
+                    sb_append(sb, escaped);
+                    free(escaped);
+                    sb_append(sb, "</code>");
+                  }
+                  break;
+                default:
+                  break;
+              }
+            }
+
+            sb_append(sb, "</a>");
+          }
         }
         break;
       case NODE_IMAGE:
@@ -196,14 +230,35 @@ char* generate_html_from_ast(ASTNode* node) {
       break;
 
     case NODE_LIST:
-      sb_append(sb, "<ul>\n");
-      for (int i = 0; i < node->child_count; i++) {
-        ASTNode* item = node->children[i];
-        if (item->type == NODE_LIST_ITEM) {
-          sb_append_format(sb, "<li>%s</li>\n", item->content);
+      {
+        int current_level = -1;  // Start at -1 so first item opens <ul>
+        for (int i = 0; i < node->child_count; i++) {
+          ASTNode* item = node->children[i];
+          if (item->type == NODE_LIST_ITEM) {
+            int item_level = item->level;
+
+            // Open nested lists if needed
+            while (current_level < item_level) {
+              sb_append(sb, "<ul>\n");
+              current_level++;
+            }
+
+            // Close nested lists if needed
+            while (current_level > item_level) {
+              sb_append(sb, "</ul>\n");
+              current_level--;
+            }
+
+            sb_append_format(sb, "<li>%s</li>\n", item->content);
+          }
+        }
+
+        // Close all remaining open lists
+        while (current_level >= 0) {
+          sb_append(sb, "</ul>\n");
+          current_level--;
         }
       }
-      sb_append(sb, "</ul>\n");
       break;
 
     default:

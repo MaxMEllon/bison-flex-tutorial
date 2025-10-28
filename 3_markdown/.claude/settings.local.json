@@ -12,7 +12,8 @@
       "Bash(./hash_test)",
       "Bash(awk:*)",
       "Bash(./markdown)",
-      "Bash(./markdown:*)"
+      "Bash(./markdown:*)",
+      "Bash(git -C /home/maxmellon/bison-flex-tutorial/3_markdown show HEAD:src/sample.md)"
     ],
     "deny": []
   }

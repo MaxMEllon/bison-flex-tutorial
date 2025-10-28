@@ -15,7 +15,15 @@ int yywrap() {
 
 %%
 
-"-"[ ]* return LIST_ITEM;
+^[ ]*"-"[ ]+ {
+  // Count leading spaces to determine indent level
+  int spaces = 0;
+  for (int i = 0; yytext[i] == ' '; i++) {
+    spaces++;
+  }
+  yylval.level = spaces / 2;  // 2 spaces = 1 indent level
+  return LIST_ITEM;
+}
 
 "#"[ ]* return HEAD;
 
@@ -56,7 +64,7 @@ int yywrap() {
 
 \n return CR;
 
-[A-Za-z0-9:/._ {};\"',@=&?\x80-\xFF]+ {
+[A-Za-z0-9:/._{};\"\\'',@=&?\x80-\xFF][A-Za-z0-9:/.\-_ {};\"\\'',@=&?\x80-\xFF]* {
   char* str;
   str = (char *) calloc(sizeof(char), strlen(yytext) + 1);
   strcpy(str, yytext);
@@ -64,7 +72,13 @@ int yywrap() {
   return STRING;
 }
 
-[ \t]+ /* ignore whitespace */
+[ \t]+ {
+  // Return space as STRING token if not at line beginning
+  char* str = (char*)calloc(sizeof(char), strlen(yytext) + 1);
+  strcpy(str, yytext);
+  yylval.str = str;
+  return STRING;
+}
 
 . /* ignore other characters */
 

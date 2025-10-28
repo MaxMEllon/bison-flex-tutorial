@@ -46,8 +46,8 @@ extern void yy_delete_buffer(YY_BUFFER_STATE buffer);
 %token EOT
 
 %type <str> STRING HeaderText CodeContent
-%type <level> HeaderLevel
-%type <node> Document Blocks Block Header Paragraph InlineElements InlineElement URL Image InlineCode String CodeBlock List ListItems ListItem
+%type <level> HeaderLevel LIST_ITEM
+%type <node> Document Blocks Block Header Paragraph InlineElements InlineElement URL Image InlineCode String CodeBlock List ListItems ListItem LinkInlineElements LinkInlineElement
 
 %%
 
@@ -157,12 +157,34 @@ InlineElement
     ;
 
 URL
-    : L_SB STRING R_SB L_PT STRING R_PT
+    : L_SB LinkInlineElements R_SB L_PT STRING R_PT
     {
-      $$ = create_node(NODE_LINK, $2, 0);
+      $$ = create_node(NODE_LINK, NULL, 0);
+      // Add all link content children
+      for (int i = 0; i < $2->child_count; i++) {
+        add_child($$, $2->children[i]);
+      }
+      // Add href as last child
       ASTNode* href = create_node(NODE_HREF, $5, 0);
       add_child($$, href);
     }
+    ;
+
+LinkInlineElements
+    : LinkInlineElement {
+        $$ = create_node(NODE_PARAGRAPH, NULL, 0);
+        add_child($$, $1);
+    }
+    | LinkInlineElements LinkInlineElement {
+        $$ = $1;
+        add_child($$, $2);
+    }
+    ;
+
+LinkInlineElement
+    : Image { $$ = $1; }
+    | InlineCode { $$ = $1; }
+    | String { $$ = $1; }
     ;
 
 Image
@@ -231,10 +253,10 @@ ListItems
 
 ListItem
     : LIST_ITEM STRING CR {
-        $$ = create_node(NODE_LIST_ITEM, $2, 0);
+        $$ = create_node(NODE_LIST_ITEM, $2, $1);
     }
     | LIST_ITEM STRING {
-        $$ = create_node(NODE_LIST_ITEM, $2, 0);
+        $$ = create_node(NODE_LIST_ITEM, $2, $1);
     }
     ;
 

@@ -7,3 +7,4 @@ token.h
 *.wasm
 *.js
 markdown
+*.o
