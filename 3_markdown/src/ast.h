@@ -1,17 +1,18 @@
-#ifndef __INC_GUARD_AST_H__
-#define __INC_GUARD_AST_H__ 1
+#ifndef AST_H
+#define AST_H
 
-#include <stdlib.h>
+#include "types.h"
 
-typedef struct _AST {
-  bool root;
-  char * type;
-  int attributeNum;
-  char ** attribute;
-  int childrenNum;
-  struct _AST ** children;
-} AST;
+// AST Node operations
+ASTNode* create_node(NodeType type, char* content, int level);
+void add_child(ASTNode* parent, ASTNode* child);
 
-AST * createRoot(void);
+// String builder operations
+StringBuilder* sb_create();
+void sb_append(StringBuilder* sb, const char* str);
+void sb_append_char(StringBuilder* sb, char c);
+void sb_append_format(StringBuilder* sb, const char* format, ...);
+char* sb_to_string(StringBuilder* sb);
+void sb_free(StringBuilder* sb);
 
-#endif
+#endif // AST_H

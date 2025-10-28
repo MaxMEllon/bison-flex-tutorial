@@ -3,24 +3,12 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "lexer.tab.h"
+#include "y.tab.h"
 #include "token.h"
 
 int yywrap() {
   return 1;
 }
-
-/*
- * square brackets
- *    `[`
- *    `]`
- */
-
-/*
- * parentheses
- *    `(`
- *    `)`
- */
 %}
 
 %x CODEBLOCK
@@ -30,6 +18,8 @@ int yywrap() {
 "-"[ ]* return LIST_ITEM;
 
 "#"[ ]* return HEAD;
+
+"!" return EXCLAM;
 
 "[" return L_SB;
 "]" return R_SB;

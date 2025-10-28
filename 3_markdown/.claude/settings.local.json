@@ -7,7 +7,12 @@
       "Bash(./a.out --ast sample.md)",
       "Bash(bison:*)",
       "Bash(flex:*)",
-      "Bash(gcc:*)"
+      "Bash(gcc:*)",
+      "Read(//home/maxmellon/bison-flex-tutorial/**)",
+      "Bash(./hash_test)",
+      "Bash(awk:*)",
+      "Bash(./markdown)",
+      "Bash(./markdown:*)"
     ],
     "deny": []
   }

@@ -4,6 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "types.h"
+#include "ast.h"
+#include "generators.h"
+
 # ifdef __EMSCRIPTEN__
 # include <emscripten.h>
 # else
@@ -22,20 +26,6 @@ typedef struct yy_buffer_state *YY_BUFFER_STATE;
 extern YY_BUFFER_STATE yy_scan_string(const char* str);
 extern void yy_delete_buffer(YY_BUFFER_STATE buffer);
 
-typedef struct ASTNode {
-  char* type;
-  char* content;
-  int level;
-  struct ASTNode** children;
-  int child_count;
-} ASTNode;
-
-ASTNode* create_node(char* type, char* content, int level);
-void add_child(ASTNode* parent, ASTNode* child);
-void print_ast_json(ASTNode* node, int indent);
-void print_paragraph_html(ASTNode* node);
-void print_escaped_html(const char* str);
-
 %}
 
 %union {
@@ -49,6 +39,7 @@ void print_escaped_html(const char* str);
 %token LIST_ITEM
 %token L_SB R_SB
 %token L_PT R_PT
+%token EXCLAM
 %token BACKTICK
 %token CODE_BLOCK
 %token STRING
@@ -56,13 +47,13 @@ void print_escaped_html(const char* str);
 
 %type <str> STRING HeaderText CodeContent
 %type <level> HeaderLevel
-%type <node> Document Blocks Block Header Paragraph InlineElements InlineElement URL InlineCode String CodeBlock List ListItems ListItem
+%type <node> Document Blocks Block Header Paragraph InlineElements InlineElement URL Image InlineCode String CodeBlock List ListItems ListItem
 
 %%
 
 Document
     : {
-        $$ = create_node("Document", NULL, 0);
+        $$ = create_node(NODE_DOCUMENT, NULL, 0);
         document_root = $$;
     }
     | Blocks {
@@ -70,7 +61,7 @@ Document
         document_root = $$;
     }
     | EOT {
-        $$ = create_node("Document", NULL, 0);
+        $$ = create_node(NODE_DOCUMENT, NULL, 0);
         document_root = $$;
     }
     ;
@@ -78,9 +69,9 @@ Document
 Blocks
     : Block {
         if ($1 == NULL) {
-            $$ = create_node("Document", NULL, 0);  // Empty document if block is null
+            $$ = create_node(NODE_DOCUMENT, NULL, 0);  // Empty document if block is null
         } else {
-            $$ = create_node("Document", NULL, 0);
+            $$ = create_node(NODE_DOCUMENT, NULL, 0);
             add_child($$, $1);
         }
     }
@@ -90,7 +81,7 @@ Blocks
             add_child($$, $2);
         }
     }
-    | EOT { $$ = create_node("Document", NULL, 0); }
+    | EOT { $$ = create_node(NODE_DOCUMENT, NULL, 0); }
     ;
 
 Block
@@ -109,10 +100,7 @@ Block
 Header
     : HeaderLevel HeaderText
     {
-      $$ = create_node("Header", $2, $1);
-      if (!output_ast) {
-        printf("<h%d>%s</h%d>\n", $1, $2, $1);
-      }
+      $$ = create_node(NODE_HEADER, $2, $1);
     }
     ;
 
@@ -131,9 +119,6 @@ Paragraph
             $$ = NULL;  // Empty paragraph
         } else {
             $$ = $1;
-            if (!output_ast) {
-                print_paragraph_html($1);
-            }
         }
     }
     ;
@@ -141,20 +126,20 @@ Paragraph
 InlineElements
     : InlineElement {
         // Skip if it's just a line break
-        if (strcmp($1->type, "LineBreak") == 0) {
+        if ($1->type == NODE_LINE_BREAK) {
             $$ = NULL;
         } else {
-            $$ = create_node("Paragraph", NULL, 0);
+            $$ = create_node(NODE_PARAGRAPH, NULL, 0);
             add_child($$, $1);
         }
     }
     | InlineElements InlineElement {
         if ($1 == NULL) {
             // First element was a line break, treat this as the first real element
-            if (strcmp($2->type, "LineBreak") == 0) {
+            if ($2->type == NODE_LINE_BREAK) {
                 $$ = NULL;
             } else {
-                $$ = create_node("Paragraph", NULL, 0);
+                $$ = create_node(NODE_PARAGRAPH, NULL, 0);
                 add_child($$, $2);
             }
         } else {
@@ -165,7 +150,8 @@ InlineElements
     ;
 
 InlineElement
-    : URL { $$ = $1; }
+    : Image { $$ = $1; }
+    | URL { $$ = $1; }
     | InlineCode { $$ = $1; }
     | String { $$ = $1; }
     ;
@@ -173,25 +159,34 @@ InlineElement
 URL
     : L_SB STRING R_SB L_PT STRING R_PT
     {
-      $$ = create_node("Link", $2, 0);
-      ASTNode* href = create_node("href", $5, 0);
+      $$ = create_node(NODE_LINK, $2, 0);
+      ASTNode* href = create_node(NODE_HREF, $5, 0);
       add_child($$, href);
+    }
+    ;
+
+Image
+    : EXCLAM L_SB STRING R_SB L_PT STRING R_PT
+    {
+      $$ = create_node(NODE_IMAGE, $3, 0);
+      ASTNode* src = create_node(NODE_HREF, $6, 0);
+      add_child($$, src);
     }
     ;
 
 InlineCode
     : BACKTICK STRING BACKTICK
     {
-      $$ = create_node("InlineCode", $2, 0);
+      $$ = create_node(NODE_INLINE_CODE, $2, 0);
     }
     ;
 
 String
     : STRING {
-        $$ = create_node("Text", $1, 0);
+        $$ = create_node(NODE_TEXT, $1, 0);
     }
     | CR {
-        $$ = create_node("LineBreak", "\n", 0);
+        $$ = create_node(NODE_LINE_BREAK, "\n", 0);
         // Don't output \n directly here, let paragraph handle it
     }
     ;
@@ -199,12 +194,7 @@ String
 CodeBlock
     : CODE_BLOCK CodeContent CODE_BLOCK
     {
-      $$ = create_node("CodeBlock", $2, 0);
-      if (!output_ast) {
-        printf("<pre><code>");
-        print_escaped_html($2);
-        printf("</code></pre>\n");
-      }
+      $$ = create_node(NODE_CODE_BLOCK, $2, 0);
     }
     ;
 
@@ -221,23 +211,16 @@ CodeContent
 
 List
     : ListItems {
-        $$ = create_node("List", NULL, 0);
+        $$ = create_node(NODE_LIST, NULL, 0);
         for (int i = 0; i < $1->child_count; i++) {
             add_child($$, $1->children[i]);
-        }
-        if (!output_ast) {
-            printf("<ul>\n");
-            for (int i = 0; i < $1->child_count; i++) {
-                printf("<li>%s</li>\n", $1->children[i]->content);
-            }
-            printf("</ul>\n");
         }
     }
     ;
 
 ListItems
     : ListItem {
-        $$ = create_node("ListItems", NULL, 0);
+        $$ = create_node(NODE_LIST_ITEMS, NULL, 0);
         add_child($$, $1);
     }
     | ListItems ListItem {
@@ -248,10 +231,10 @@ ListItems
 
 ListItem
     : LIST_ITEM STRING CR {
-        $$ = create_node("ListItem", $2, 0);
+        $$ = create_node(NODE_LIST_ITEM, $2, 0);
     }
     | LIST_ITEM STRING {
-        $$ = create_node("ListItem", $2, 0);
+        $$ = create_node(NODE_LIST_ITEM, $2, 0);
     }
     ;
 
@@ -259,146 +242,6 @@ ListItem
 
 void yyerror(char * str) {
   printf("cause error: %s\n", str);
-}
-
-ASTNode* create_node(char* type, char* content, int level) {
-  ASTNode* node = malloc(sizeof(ASTNode));
-  node->type = strdup(type);
-  node->content = content ? strdup(content) : NULL;
-  node->level = level;
-  node->children = NULL;
-  node->child_count = 0;
-  return node;
-}
-
-void add_child(ASTNode* parent, ASTNode* child) {
-  parent->children = realloc(parent->children, sizeof(ASTNode*) * (parent->child_count + 1));
-  parent->children[parent->child_count] = child;
-  parent->child_count++;
-}
-
-void print_ast_json(ASTNode* node, int indent) {
-  if (!node) return;
-
-  for (int i = 0; i < indent; i++) printf("  ");
-  printf("{\n");
-
-  for (int i = 0; i < indent + 1; i++) printf("  ");
-  printf("\"type\": \"%s\"", node->type);
-
-  if (node->content) {
-    printf(",\n");
-    for (int i = 0; i < indent + 1; i++) printf("  ");
-    printf("\"content\": \"%s\"", node->content);
-  }
-
-  if (node->level > 0) {
-    printf(",\n");
-    for (int i = 0; i < indent + 1; i++) printf("  ");
-    printf("\"level\": %d", node->level);
-  }
-
-  if (node->child_count > 0) {
-    printf(",\n");
-    for (int i = 0; i < indent + 1; i++) printf("  ");
-    printf("\"children\": [\n");
-
-    for (int i = 0; i < node->child_count; i++) {
-      print_ast_json(node->children[i], indent + 2);
-      if (i < node->child_count - 1) printf(",");
-      printf("\n");
-    }
-
-    for (int i = 0; i < indent + 1; i++) printf("  ");
-    printf("]");
-  }
-
-  printf("\n");
-  for (int i = 0; i < indent; i++) printf("  ");
-  printf("}");
-}
-
-void print_paragraph_html(ASTNode* node) {
-  if (!node) return;
-
-  printf("<p>");
-  int has_trailing_space = 0;
-
-  for (int i = 0; i < node->child_count; i++) {
-    ASTNode* child = node->children[i];
-    // Hash function for string switching
-    unsigned int hash = 0;
-    for (const char* s = child->type; *s; s++) {
-      hash = hash * 31 + *s;
-    }
-
-    switch (hash) {
-      // "Text"
-      case 2603341:
-        printf("%s", child->content);
-        // Check if this text ends with space and is followed by LineBreak
-        if (child->content && strlen(child->content) > 0) {
-          char last_char = child->content[strlen(child->content) - 1];
-          if (last_char == ' ' && i + 1 < node->child_count) {
-            ASTNode* next = node->children[i + 1];
-            if (strcmp(next->type, "LineBreak") == 0) {
-              has_trailing_space = 1;
-            }
-          }
-        }
-        break;
-      // "Link"
-      case 2368538:
-        {
-          ASTNode* href = child->children[0]; // First child should be href
-          printf("<a href='%s'>%s</a>", href->content, child->content);
-        }
-        break;
-      // "LineBreak"
-      case 181055819:
-        if (has_trailing_space) {
-          printf("</p>\n<p>");
-          has_trailing_space = 0;  // Reset flag
-        } else {
-          printf("\n");
-        }
-        break;
-      // "InlineCode"
-      case 2771037254:
-        printf("<code>");
-        print_escaped_html(child->content);
-        printf("</code>");
-        break;
-    }
-  }
-  printf("</p>\n");
-}
-
-void print_escaped_html(const char* str) {
-  if (!str) return;
-
-  for (int i = 0; str[i] != '\0'; i++) {
-    switch (str[i]) {
-      case '<':
-        printf("&lt;");
-        break;
-      case '>':
-        printf("&gt;");
-        break;
-      case '&':
-        printf("&amp;");
-        break;
-      case '"':
-        printf("&quot;");
-        break;
-      case '\'':
-        printf("&#39;");
-        break;
-      default:
-        printf("%c", str[i]);
-        break;
-    }
-  }
 }
 
 // Parse a markdown string and return the result as HTML
@@ -411,14 +254,17 @@ int parse_markdown(const char* input) {
   // Use yy_scan_string to parse from a string instead of yyin
   YY_BUFFER_STATE buffer = yy_scan_string(input);
 
-  // Output opening article tag for HTML mode
-  printf("<article id=\"mr\">\n");
-
   // Parse the input
   int result = yyparse();
 
-  // Output closing article tag for HTML mode
-  printf("</article>\n");
+  // Output HTML from AST
+  if (document_root) {
+    printf("<article id=\"mr\">\n");
+    char* html = generate_html_from_ast(document_root);
+    printf("%s", html);
+    free(html);
+    printf("</article>\n");
+  }
 
   // Clean up the buffer
   yy_delete_buffer(buffer);
@@ -441,8 +287,9 @@ int parse_markdown_as_ast(const char* input) {
 
   // Output AST as JSON
   if (document_root) {
-    print_ast_json(document_root, 0);
-    printf("\n");
+    char* json = generate_ast_json(document_root);
+    printf("%s", json);
+    free(json);
   }
 
   // Clean up the buffer
@@ -452,7 +299,7 @@ int parse_markdown_as_ast(const char* input) {
 }
 
 int main(int argc, char * argv[]) {
-  extern int EMSCRIPTEN_KEEPALIVE yyparse(void);
+  extern int yyparse(void);
   extern FILE *yyin;
 
   // Parse command line arguments to determine output mode
@@ -467,11 +314,6 @@ int main(int argc, char * argv[]) {
   // Always use stdin for input
   yyin = stdin;
 
-  // Output opening article tag for HTML mode
-  if (!output_ast) {
-    printf("<article id=\"mr\">\n");
-  }
-
   // Parse the input
   if (yyparse()) {
     exit(1);
@@ -479,10 +321,15 @@ int main(int argc, char * argv[]) {
 
   // Output results based on the --ast flag
   if (output_ast && document_root) {
-    print_ast_json(document_root, 0);
-    printf("\n");
-  } else if (!output_ast) {
-    // Output closing article tag for HTML mode
+    char* json = generate_ast_json(document_root);
+    printf("%s", json);
+    free(json);
+  } else if (!output_ast && document_root) {
+    // Output HTML from AST
+    printf("<article id=\"mr\">\n");
+    char* html = generate_html_from_ast(document_root);
+    printf("%s", html);
+    free(html);
     printf("</article>\n");
   }
 
