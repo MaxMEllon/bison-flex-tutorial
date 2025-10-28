@@ -13,7 +13,9 @@
       "Bash(awk:*)",
       "Bash(./markdown)",
       "Bash(./markdown:*)",
-      "Bash(git -C /home/maxmellon/bison-flex-tutorial/3_markdown show HEAD:src/sample.md)"
+      "Bash(git -C /home/maxmellon/bison-flex-tutorial/3_markdown show HEAD:src/sample.md)",
+      "Bash(cat:*)",
+      "Bash(/home/maxmellon/bison-flex-tutorial/3_markdown/src/markdown)"
     ],
     "deny": []
   }
